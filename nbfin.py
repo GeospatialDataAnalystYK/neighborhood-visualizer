@@ -18,22 +18,27 @@ def load_data():
 
 data = load_data()
 
-# --- Sidebar Filters ---
-st.sidebar.header("Filter Options")
-states = sorted(data['State'].unique())
-selected_state = st.sidebar.selectbox("Select State", states)
+# --- Sidebar Configuration ---
+with st.sidebar:
+    # Display Fox Chase Logo
+    st.image("fclogo2.png", use_container_width =True)
+    st.header("Filter Options")
+    
+    # Dropdown Selections
+    states = sorted(data['State'].unique())
+    selected_state = st.selectbox("Select State", states)
 
-counties = sorted(data[data['State'] == selected_state]['County'].unique())
-selected_county = st.sidebar.selectbox("Select County", counties)
+    counties = sorted(data[data['State'] == selected_state]['County'].unique())
+    selected_county = st.selectbox("Select County", counties)
 
-cities = sorted(data[(data['State'] == selected_state) & (data['County'] == selected_county)]['City'].unique())
-selected_city = st.sidebar.selectbox("Select City", cities)
+    cities = sorted(data[(data['State'] == selected_state) & (data['County'] == selected_county)]['City'].unique())
+    selected_city = st.selectbox("Select City", cities)
 
-neighborhoods = sorted(data[(data['State'] == selected_state) & 
-                            (data['County'] == selected_county) & 
-                            (data['City'] == selected_city)]['Name'].unique())
+    neighborhoods = sorted(data[(data['State'] == selected_state) & 
+                                (data['County'] == selected_county) & 
+                                (data['City'] == selected_city)]['Name'].unique())
 
-selected_neighborhood = st.sidebar.selectbox("Jump to Neighborhood", neighborhoods)
+    selected_neighborhood = st.selectbox("Jump to Neighborhood", neighborhoods)
 
 # --- Apply Filters ---
 filtered_data = data[
