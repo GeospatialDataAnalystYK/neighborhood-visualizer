@@ -2,6 +2,7 @@ import streamlit as st
 import geopandas as gpd
 import folium
 from streamlit_folium import st_folium
+from folium.features import GeoJsonTooltip
 
 # --- Streamlit Page Setup ---
 st.set_page_config(page_title="Zillow Neighborhoods Visualizer", layout="wide")
@@ -10,10 +11,9 @@ st.title("🗺️ Zillow Neighborhoods Visualizer")
 # --- Load Data ---
 @st.cache_data
 def load_data():
-    shapefile_path = 'Tracts_in_Neighborhoods.shp'  # Update with the correct path
-    gdf = gpd.read_file(shapefile_path)
-    gdf = gdf.to_crs(epsg=4326)  # Force reproject to WGS84
-    gdf['Area_sqkm'] = gdf.geometry.area / 10**6  # Calculate area in square kilometers
+    neighborhoods_path = 'Tracts_in_Neighborhoods.shp'  # Update with your actual path
+    gdf = gpd.read_file(neighborhoods_path)
+    gdf = gdf.to_crs(epsg=4326)  # Ensure it's in WGS84
     return gdf
 
 data = load_data()
@@ -29,6 +29,12 @@ selected_county = st.sidebar.selectbox("Select County", counties)
 cities = sorted(data[(data['State'] == selected_state) & (data['County'] == selected_county)]['City'].unique())
 selected_city = st.sidebar.selectbox("Select City", cities)
 
+neighborhoods = sorted(data[(data['State'] == selected_state) & 
+                            (data['County'] == selected_county) & 
+                            (data['City'] == selected_city)]['Name'].unique())
+
+selected_neighborhood = st.sidebar.selectbox("Jump to Neighborhood", neighborhoods)
+
 # --- Apply Filters ---
 filtered_data = data[
     (data['State'] == selected_state) &
@@ -36,50 +42,54 @@ filtered_data = data[
     (data['City'] == selected_city)
 ]
 
-# --- Extract Neighborhoods for Sidebar Navigation ---
-neighborhood_names = sorted(filtered_data['Name'].unique())
-selected_neighborhood = st.sidebar.selectbox("Jump to Neighborhood", [""] + neighborhood_names)
-
 # --- Map Setup ---
 st.subheader(f"Neighborhoods in {selected_city}, {selected_county}, {selected_state}")
 
 if not filtered_data.empty:
-    # Center the map on the centroid of the filtered data
-    map_center = [filtered_data.geometry.centroid.y.mean(), 
-                  filtered_data.geometry.centroid.x.mean()]
+    m = folium.Map(
+        location=[filtered_data.geometry.centroid.y.mean(), 
+                 filtered_data.geometry.centroid.x.mean()], 
+        zoom_start=12, 
+        tiles='cartodb positron'
+    )
 
-    m = folium.Map(location=map_center, 
-                   zoom_start=12, tiles='cartodb positron')
-    
-    # --- Draw all neighborhoods (light blue) ---
+    # Transparent Tracts
     folium.GeoJson(
-        data=filtered_data,
-        style_function=lambda x: {
-            'color': '#1f78b4',
-            'weight': 1,
-            'fillOpacity': 0.1
+        filtered_data,
+        style_function=lambda feature: {
+            'fillColor': 'transparent',
+            'color': '#004080',
+            'weight': 1.2
         },
-        name="All Neighborhoods"
+        tooltip=GeoJsonTooltip(
+            fields=["GEOID", "Name", "County", "City", "State"],
+            aliases=["Tract GEOID:", "Neighborhood:", "County:", "City:", "State:"],
+            localize=True
+        )
     ).add_to(m)
 
-    # --- Draw the selected neighborhood in orange ---
-    if selected_neighborhood:
-        neighborhood_geom = filtered_data[filtered_data['Name'] == selected_neighborhood]
+    # Highlight selected neighborhood
+    neighborhood_geom = filtered_data[filtered_data['Name'] == selected_neighborhood]
+    if not neighborhood_geom.empty:
+        folium.GeoJson(
+            neighborhood_geom,
+            style_function=lambda feature: {
+                'fillColor': '#FFA500',
+                'color': '#FFA500',
+                'weight': 2,
+                'fillOpacity': 0.5
+            },
+            tooltip=GeoJsonTooltip(
+                fields=["GEOID", "Name", "County", "City", "State"],
+                aliases=["Tract GEOID:", "Neighborhood:", "County:", "City:", "State:"],
+                localize=True
+            )
+        ).add_to(m)
         
-        if not neighborhood_geom.empty:
-            map_center = [neighborhood_geom.geometry.centroid.y.mean(), 
-                          neighborhood_geom.geometry.centroid.x.mean()]
-            folium.GeoJson(
-                data=neighborhood_geom,
-                style_function=lambda x: {
-                    'color': 'orange',
-                    'weight': 2.5,
-                    'fillOpacity': 0.5
-                },
-                tooltip=folium.GeoJsonTooltip(fields=["GEOID", "Name", "County", "City", "State"], 
-                                              aliases=["Tract GEOID:", "Neighborhood:", "County:", "City:", "State:"],
-                                              localize=True)
-            ).add_to(m)
+        # Center the map on the neighborhood
+        centroid = neighborhood_geom.geometry.centroid.iloc[0]
+        m.location = [centroid.y, centroid.x]
+        m.zoom_start = 13
 
     # --- Display Map ---
     st_folium(m, width=1000, height=600)
