@@ -1,0 +1,8 @@
+geopandas
+folium
+streamlit
+streamlit-folium
+pyproj
+shapely
+fiona
+rtree
