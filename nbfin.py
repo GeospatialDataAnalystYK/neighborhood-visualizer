@@ -6,7 +6,7 @@ from folium.features import GeoJsonTooltip
 
 # --- Streamlit Page Setup ---
 st.set_page_config(page_title="Zillow Neighborhoods Visualizer", layout="wide")
-st.title("🗺️ Zillow Neighborhoods Visualizer")
+st.title("Neighborhood Visualizer")
 
 # --- Load Data ---
 @st.cache_data
